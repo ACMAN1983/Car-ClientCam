@@ -2,86 +2,109 @@
 <html lang="zh-TW">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>SENTINEL v5.0 FINAL-0225</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+  <title>SENTINEL v5.5 FINAL VISION</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
-    body { background: #020617; color: white; font-family: 'Orbitron', sans-serif; min-height: 100dvh; display: flex; align-items: center; justify-content: center; }
-    .card { background: rgba(15, 23, 42, 0.9); border: 2px solid #00f3ff; border-radius: 2rem; padding: 2rem; width: 90%; max-width: 400px; box-shadow: 0 0 30px rgba(0, 243, 255, 0.3); text-align: center; }
-    #v { width: 100%; border-radius: 1rem; margin-bottom: 1rem; border: 1px solid #00f3ff; height: 200px; object-fit: cover; }
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&display=swap');
+    :root { --neon: #00f3ff; }
+    body { background: #020617; color: white; font-family: 'Orbitron', sans-serif; margin: 0; overflow: hidden; display: flex; justify-content: center; min-height: 100dvh; }
+    .terminal-container { width: 100%; max-width: 420px; background: radial-gradient(circle at center, #0f172a 0%, #020617 100%); padding: 1.5rem; display: flex; flex-direction: column; }
+    #cam-box { width: 100%; height: 220px; border-radius: 1rem; overflow: hidden; position: relative; border: 2px solid var(--neon); box-shadow: 0 0 15px rgba(0,243,255,0.2); margin-bottom: 1rem; }
+    video { width: 100%; height: 100%; object-fit: cover; opacity: 0.8; }
+    .speed-gauge { width: 200px; height: 200px; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 4px double var(--neon); border-radius: 50%; box-shadow: 0 0 25px rgba(0,243,255,0.2); }
+    .speed-value { font-size: 80px; font-weight: 900; color: var(--neon); text-shadow: 0 0 10px var(--neon); }
+    .neon-select { background: #111827; border: 1px solid #374151; color: var(--neon); width: 100%; padding: 12px; border-radius: 8px; font-size: 14px; outline: none; appearance: none; }
   </style>
 </head>
 <body>
 
-  <div class="card" id="main-ui">
-    <h1 class="text-cyan-400 font-black tracking-widest text-xl mb-4">SENTINEL FINAL</h1>
-    <video id="v" playsinline autoplay muted></video>
-    
-    <div class="space-y-4">
-      <select id="carId" class="w-full bg-slate-900 border border-cyan-500 p-3 rounded-lg text-cyan-400 outline-none">
-        <option>連結中...</option>
-      </select>
-      
-      <button onclick="uplink()" id="btn" class="w-full py-4 bg-cyan-400 text-black font-black rounded-xl shadow-[0_0_20px_#00f3ff] active:scale-95 transition-all">
-        點擊截圖並同步傳送
-      </button>
+  <div class="terminal-container">
+    <div id="cam-box">
+      <video id="v" playsinline autoplay muted></video>
+      <div class="absolute top-2 left-2 text-[8px] bg-black/70 px-2 py-1 rounded border border-cyan-500">AEGIS VISION v5.5</div>
+      <canvas id="snapshot" class="hidden"></canvas>
     </div>
 
-    <div id="status" class="mt-6 text-[10px] text-cyan-600 font-mono italic">SYSTEM STANDBY...</div>
-    <canvas id="hidden-canvas" class="hidden"></canvas>
+    <div class="flex-1 flex flex-col justify-center text-center">
+      <div class="speed-gauge">
+        <div id="current-speed" class="speed-value">0</div>
+        <div class="text-[10px] text-slate-500 font-bold tracking-widest">KM/H</div>
+      </div>
+      <div class="grid grid-cols-2 gap-4 mt-8 text-[11px] text-cyan-600 font-bold">
+        <div>LAT: <span id="disp-lat" class="text-white font-mono">0.000000</span></div>
+        <div>LNG: <span id="disp-lng" class="text-white font-mono">0.000000</span></div>
+      </div>
+    </div>
+
+    <div class="space-y-3 bg-gray-900/40 p-4 rounded-xl border border-gray-800 mt-4">
+      <div class="flex gap-2">
+        <select id="carId" class="neon-select flex-1"><option>CONNECTING...</option></select>
+        <select id="videoSource" class="neon-select flex-1"><option>CAM SCAN...</option></select>
+      </div>
+      <button onclick="initSentinel()" id="mainBtn" class="w-full py-4 bg-cyan-400 text-black font-black rounded-lg shadow-lg active:scale-95 transition-all uppercase tracking-widest">Engage Link</button>
+      <div id="status-log" class="text-[10px] text-cyan-700 font-mono mt-2 h-4 overflow-hidden">>>> STANDBY</div>
+    </div>
   </div>
 
   <script>
-    // 🔴 請確保換成你最新的 /exec 網址
+    // 🔴 貼上您最新的 GAS 網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycbyQi8ekgjn_zBAPw3zmLVetaISOmxfR9mSjzSEAz0-bj4Dc5vmSowylLSsgx0XueGzs/exec";
 
     window.onload = async () => {
-      // 1. 開啟鏡頭
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      document.getElementById('v').srcObject = stream;
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const vSel = document.getElementById('videoSource');
+        vSel.innerHTML = '';
+        devices.filter(d => d.kind === 'videoinput').forEach((d, i) => vSel.add(new Option(d.label || `CAM ${i+1}`, d.deviceId)));
 
-      // 2. 獲取車號
-      const res = await fetch(`${GAS_URL}?action=getSheets`);
-      const names = await res.json();
-      const sel = document.getElementById('carId');
-      sel.innerHTML = '';
-      names.forEach(n => sel.add(new Option(n, n)));
+        const res = await fetch(`${GAS_URL}?action=getSheets`);
+        const names = await res.json();
+        const carSel = document.getElementById('carId');
+        carSel.innerHTML = '';
+        names.forEach(n => carSel.add(new Option(n, n)));
+        document.getElementById('status-log').innerText = ">>> HUB ONLINE";
+      } catch (e) { document.getElementById('status-log').innerText = ">>> LINK ERR"; }
     };
 
-    async function uplink() {
-      const status = document.getElementById('status');
-      status.innerText = "UPLINKING IMAGE + DATA...";
-      
+    async function initSentinel() {
+      const devId = document.getElementById('videoSource').value;
+      const carId = document.getElementById('carId').value;
       try {
-        // 核心突破：直接從視訊軌道截圖並壓縮 (解決 403 數據量報錯)
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: devId } } });
+        document.getElementById('v').srcObject = stream;
+        document.getElementById('mainBtn').innerText = "SYSTEM ACTIVE";
+        document.getElementById('mainBtn').disabled = true;
+        document.getElementById('mainBtn').style.opacity = "0.5";
+        startTracking(carId);
+      } catch (e) { alert("INIT FAILED"); }
+    }
+
+    function startTracking(carId) {
+      navigator.geolocation.watchPosition(pos => {
+        const speedKmh = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
+        document.getElementById('current-speed').innerText = speedKmh;
+        document.getElementById('disp-lat').innerText = pos.coords.latitude.toFixed(6);
+        document.getElementById('disp-lng').innerText = pos.coords.longitude.toFixed(6);
+
+        // 核心突破：自動擷取 + 極致壓縮 (320x240, 0.3 品質)
         const video = document.getElementById('v');
-        const canvas = document.getElementById('hidden-canvas');
+        const canvas = document.getElementById('snapshot');
         canvas.width = 320; canvas.height = 240;
         canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
-        const base64 = canvas.toDataURL("image/jpeg", 0.3); // 30% 品質
+        const base64 = canvas.toDataURL("image/jpeg", 0.3);
 
-        const payload = {
-          data: { carId: document.getElementById('carId').value, lat: 24.1369, lng: 120.7079 },
-          imageString: base64
-        };
-
-        // 發送數據
-        const response = await fetch(GAS_URL, {
+        fetch(GAS_URL, {
           method: "POST",
-          body: JSON.stringify(payload)
+          body: JSON.stringify({
+            data: { carId, lat: pos.coords.latitude, lng: pos.coords.longitude, speed: speedKmh, accuracy: pos.coords.accuracy },
+            imageString: base64
+          })
+        }).then(() => {
+          document.getElementById('status-log').innerText = ">>> UPLINK OK: " + new Date().toLocaleTimeString();
         });
-
-        const result = await response.json();
-        if (result.status === "SUCCESS") {
-          status.innerText = "✅ 同步成功！檢查 Drive 與 Sheets";
-        } else {
-          status.innerText = "❌ 失敗: " + result.msg;
-        }
-      } catch (e) {
-        status.innerText = "❌ 403/ERR: 授權未完全通過";
-      }
+      }, null, { enableHighAccuracy: true });
     }
   </script>
 </body>
