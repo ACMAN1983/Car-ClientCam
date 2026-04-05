@@ -1,116 +1,68 @@
 <!DOCTYPE html>
-<html lang="zh-TW">
+<html>
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>SENTINEL v5.0 HORIZON</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
-    :root { --neon: #00f3ff; }
-    body { background: #020617; color: white; font-family: 'Orbitron', sans-serif; margin: 0; overflow: hidden; display: flex; justify-content: center; min-height: 100dvh; }
-    .terminal-container { width: 100%; max-width: 450px; background: radial-gradient(circle at center, #0f172a 0%, #020617 100%); padding: 1.5rem; display: flex; flex-direction: column; }
-    #cam-preview { width: 100%; height: 220px; border-radius: 1rem; overflow: hidden; position: relative; border: 1px solid rgba(0, 243, 255, 0.4); flex-shrink: 0; box-shadow: inset 0 0 20px rgba(0,243,255,0.2); }
-    video { width: 100%; height: 100%; object-fit: cover; filter: brightness(1.2) contrast(1.1); }
-    canvas#snapshot { display: none; }
-    .speed-gauge { width: 210px; height: 210px; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 4px double var(--neon); border-radius: 50%; box-shadow: 0 0 25px rgba(0, 243, 255, 0.2); background: rgba(0,0,0,0.4); }
-    .speed-value { font-size: 80px; font-weight: 900; line-height: 1; color: var(--neon); text-shadow: 0 0 15px var(--neon); }
-    .neon-select { background: #0f172a; border: 1px solid #1e293b; color: var(--neon); width: 100%; padding: 12px; border-radius: 8px; font-size: 14px; outline: none; appearance: none; }
-    #status-log { font-family: monospace; font-size: 10px; color: #2dd4bf; background: rgba(0,0,0,0.5); padding: 10px; height: 60px; overflow-y: auto; border-radius: 4px; margin-top: 1rem; border-left: 2px solid var(--neon); }
-  </style>
+    <meta charset="UTF-8">
+    <title>極簡網頁截圖測試</title>
+    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+    <style>
+        body { font-family: sans-serif; text-align: center; padding-top: 50px; background: #f0f2f5; }
+        .card { background: white; padding: 30px; border-radius: 15px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
+        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; }
+        #status { margin-top: 20px; color: #666; }
+    </style>
 </head>
 <body>
-  <div class="terminal-container">
-    <div id="cam-preview">
-      <video id="v" playsinline autoplay muted></video>
-      <div class="absolute top-2 left-2 text-[8px] bg-cyan-950/90 px-2 py-1 rounded border border-cyan-400">HORIZON VISION ACTIVE</div>
-      <canvas id="snapshot"></canvas>
-    </div>
-    <div class="flex-1 flex flex-col justify-center">
-      <div class="speed-gauge">
-        <div id="current-speed" class="speed-value">0</div>
-        <div class="text-[12px] text-slate-500 font-bold uppercase tracking-widest mt-1">km/h</div>
-      </div>
-      <div class="grid grid-cols-2 gap-4 w-full mt-6 text-center text-[11px] text-cyan-600 font-bold">
-        <div>LAT: <span id="disp-lat" class="text-white font-mono">0.000000</span></div>
-        <div>LNG: <span id="disp-lng" class="text-white font-mono">0.000000</span></div>
-      </div>
-    </div>
-    <div class="space-y-3 bg-gray-900/60 p-4 rounded-xl border border-gray-800">
-      <div class="flex gap-2">
-        <select id="carId" class="neon-select"><option>UPLINKING HUB...</option></select>
-        <select id="videoSource" class="neon-select"><option value="">SCANNING CAM...</option></select>
-      </div>
-      <button id="mainBtn" onclick="initSentinel()" class="w-full py-4 bg-cyan-400 text-black font-black rounded-lg text-sm shadow-[0_0_15px_rgba(0,243,255,0.4)] active:scale-95 transition-all uppercase tracking-widest">Activate Link</button>
-      <div id="status-log">>>> WAITING FOR AUTHORIZATION...</div>
-    </div>
-  </div>
 
-  <script>
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbyQi8ekgjn_zBAPw3zmLVetaISOmxfR9mSjzSEAz0-bj4Dc5vmSowylLSsgx0XueGzs/exec";
+<div class="card" id="capture-area">
+    <h1>SENTINEL 系統測試</h1>
+    <p>目前的測試時間: <span id="time"></span></p>
+    <hr>
+    <button onclick="captureAndUpload()">點擊截圖並傳送至 Google Drive</button>
+</div>
 
-    window.onload = async () => {
-      try {
-        await navigator.mediaDevices.getUserMedia({ video: true });
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const vSel = document.getElementById('videoSource');
-        vSel.innerHTML = '';
-        devices.filter(d => d.kind === 'videoinput').forEach((d, i) => vSel.add(new Option(d.label || `CAM ${i+1}`, d.deviceId)));
+<div id="status">準備就緒</div>
 
-        const response = await fetch(`${GAS_URL}?action=getSheets`);
-        const sheetNames = await response.json();
-        const carSel = document.getElementById('carId');
-        carSel.innerHTML = '';
-        sheetNames.forEach(name => carSel.add(new Option(name, name)));
-        document.getElementById('status-log').innerText = ">>> SYSTEM READY. HUB ONLINE.";
-      } catch (e) { document.getElementById('status-log').innerText = ">>> LINK FAILURE. CHECK PROTOCOL."; }
-    };
+<script>
+    // 🔴 請替換為您部署後的 GAS Web App URL
+    const GAS_URL = "您的_GAS_部署網址_exec";
 
-    async function initSentinel() {
-      const devId = document.getElementById('videoSource').value;
-      const carId = document.getElementById('carId').value;
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: devId } } });
-        document.getElementById('v').srcObject = stream;
-        const btn = document.getElementById('mainBtn');
-        btn.innerText = "LINK ENGAGED";
-        btn.disabled = true;
-        btn.style.background = "#1e293b";
-        btn.style.color = "#00f3ff";
-        startAegisUplink(carId);
-      } catch (e) { alert("HARDWARE ENGAGE FAILED"); }
+    // 顯示即時時間增加截圖辨識度
+    setInterval(() => {
+        document.getElementById('time').innerText = new Date().toLocaleString();
+    }, 1000);
+
+    async function captureAndUpload() {
+        const status = document.getElementById('status');
+        status.innerText = "正在擷取畫面...";
+
+        try {
+            // 1. 將指定的 HTML 元素轉為 Canvas
+            const canvas = await html2canvas(document.body);
+            
+            // 2. 轉為 Base64 (使用 png 格式)
+            const base64Image = canvas.toDataURL("image/png");
+
+            status.innerText = "正在上傳雲端...";
+
+            // 3. 傳送到 GAS
+            const response = await fetch(GAS_URL, {
+                method: "POST",
+                body: JSON.stringify({ image: base64Image })
+            });
+
+            const result = await response.json();
+            
+            if (result.status === "成功") {
+                status.innerText = "✅ 上傳成功！請檢查雲端資料夾。";
+                console.log("檔案網址:", result.url);
+            } else {
+                status.innerText = "❌ 上傳失敗: " + result.error;
+            }
+        } catch (e) {
+            status.innerText = "❌ 發生錯誤: " + e;
+        }
     }
+</script>
 
-    function startAegisUplink(carId) {
-      navigator.geolocation.watchPosition(pos => {
-        const speedKmh = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
-        document.getElementById('current-speed').innerText = speedKmh;
-        document.getElementById('disp-lat').innerText = pos.coords.latitude.toFixed(6);
-        document.getElementById('disp-lng').innerText = pos.coords.longitude.toFixed(6);
-
-        // --- 主動擷取與極致壓縮 (突破 403 限制) ---
-        const video = document.getElementById('v');
-        const canvas = document.getElementById('snapshot');
-        canvas.width = 320; canvas.height = 240; // 降維處理
-        canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
-        const base64Img = canvas.toDataURL("image/jpeg", 0.25); // 極致壓縮至 25% 品質
-
-        fetch(GAS_URL, {
-          method: "POST",
-          headers: { "Content-Type": "text/plain" },
-          body: JSON.stringify({
-            data: { carId, lat: pos.coords.latitude, lng: pos.coords.longitude, speed: speedKmh, accuracy: Math.round(pos.coords.accuracy) },
-            imageString: base64Img
-          })
-        }).then(res => res.json()).then(res => {
-           if(res.status === "SUCCESS") {
-             const log = document.getElementById('status-log');
-             log.innerText += `\n[${new Date().toLocaleTimeString()}] UPLINK SYNC OK`;
-             log.scrollTop = log.scrollHeight;
-           }
-        }).catch(err => console.log("Uplink Error", err));
-      }, null, { enableHighAccuracy: true });
-    }
-  </script>
 </body>
 </html>
