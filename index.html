@@ -1,68 +1,88 @@
 <!DOCTYPE html>
-<html>
+<html lang="zh-TW">
 <head>
-    <meta charset="UTF-8">
-    <title>極簡網頁截圖測試</title>
-    <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
-    <style>
-        body { font-family: sans-serif; text-align: center; padding-top: 50px; background: #f0f2f5; }
-        .card { background: white; padding: 30px; border-radius: 15px; display: inline-block; box-shadow: 0 4px 6px rgba(0,0,0,0.1); }
-        button { background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-size: 16px; }
-        #status { margin-top: 20px; color: #666; }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>SENTINEL v5.0 FINAL</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://html2canvas.hertzen.com/dist/html2canvas.min.js"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+    body { background: #020617; color: white; font-family: 'Orbitron', sans-serif; min-height: 100dvh; display: flex; align-items: center; justify-content: center; }
+    .card { background: rgba(15, 23, 42, 0.9); border: 2px solid #00f3ff; border-radius: 2rem; padding: 2rem; width: 90%; max-width: 400px; box-shadow: 0 0 30px rgba(0, 243, 255, 0.3); text-align: center; }
+    #v { width: 100%; border-radius: 1rem; margin-bottom: 1rem; border: 1px solid #00f3ff; height: 200px; object-fit: cover; }
+  </style>
 </head>
 <body>
 
-<div class="card" id="capture-area">
-    <h1>SENTINEL 系統測試</h1>
-    <p>目前的測試時間: <span id="time"></span></p>
-    <hr>
-    <button onclick="captureAndUpload()">點擊截圖並傳送至 Google Drive</button>
-</div>
+  <div class="card" id="main-ui">
+    <h1 class="text-cyan-400 font-black tracking-widest text-xl mb-4">SENTINEL FINAL</h1>
+    <video id="v" playsinline autoplay muted></video>
+    
+    <div class="space-y-4">
+      <select id="carId" class="w-full bg-slate-900 border border-cyan-500 p-3 rounded-lg text-cyan-400 outline-none">
+        <option>連結中...</option>
+      </select>
+      
+      <button onclick="uplink()" id="btn" class="w-full py-4 bg-cyan-400 text-black font-black rounded-xl shadow-[0_0_20px_#00f3ff] active:scale-95 transition-all">
+        點擊截圖並同步傳送
+      </button>
+    </div>
 
-<div id="status">準備就緒</div>
+    <div id="status" class="mt-6 text-[10px] text-cyan-600 font-mono italic">SYSTEM STANDBY...</div>
+    <canvas id="hidden-canvas" class="hidden"></canvas>
+  </div>
 
-<script>
-    // 🔴 請替換為您部署後的 GAS Web App URL
+  <script>
+    // 🔴 請確保換成你最新的 /exec 網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycbyQi8ekgjn_zBAPw3zmLVetaISOmxfR9mSjzSEAz0-bj4Dc5vmSowylLSsgx0XueGzs/exec";
 
-    // 顯示即時時間增加截圖辨識度
-    setInterval(() => {
-        document.getElementById('time').innerText = new Date().toLocaleString();
-    }, 1000);
+    window.onload = async () => {
+      // 1. 開啟鏡頭
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      document.getElementById('v').srcObject = stream;
 
-    async function captureAndUpload() {
-        const status = document.getElementById('status');
-        status.innerText = "正在擷取畫面...";
+      // 2. 獲取車號
+      const res = await fetch(`${GAS_URL}?action=getSheets`);
+      const names = await res.json();
+      const sel = document.getElementById('carId');
+      sel.innerHTML = '';
+      names.forEach(n => sel.add(new Option(n, n)));
+    };
 
-        try {
-            // 1. 將指定的 HTML 元素轉為 Canvas
-            const canvas = await html2canvas(document.body);
-            
-            // 2. 轉為 Base64 (使用 png 格式)
-            const base64Image = canvas.toDataURL("image/png");
+    async function uplink() {
+      const status = document.getElementById('status');
+      status.innerText = "UPLINKING IMAGE + DATA...";
+      
+      try {
+        // 核心突破：直接從視訊軌道截圖並壓縮 (解決 403 數據量報錯)
+        const video = document.getElementById('v');
+        const canvas = document.getElementById('hidden-canvas');
+        canvas.width = 320; canvas.height = 240;
+        canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
+        const base64 = canvas.toDataURL("image/jpeg", 0.3); // 30% 品質
 
-            status.innerText = "正在上傳雲端...";
+        const payload = {
+          data: { carId: document.getElementById('carId').value, lat: 24.1369, lng: 120.7079 },
+          imageString: base64
+        };
 
-            // 3. 傳送到 GAS
-            const response = await fetch(GAS_URL, {
-                method: "POST",
-                body: JSON.stringify({ image: base64Image })
-            });
+        // 發送數據
+        const response = await fetch(GAS_URL, {
+          method: "POST",
+          body: JSON.stringify(payload)
+        });
 
-            const result = await response.json();
-            
-            if (result.status === "成功") {
-                status.innerText = "✅ 上傳成功！請檢查雲端資料夾。";
-                console.log("檔案網址:", result.url);
-            } else {
-                status.innerText = "❌ 上傳失敗: " + result.error;
-            }
-        } catch (e) {
-            status.innerText = "❌ 發生錯誤: " + e;
+        const result = await response.json();
+        if (result.status === "SUCCESS") {
+          status.innerText = "✅ 同步成功！檢查 Drive 與 Sheets";
+        } else {
+          status.innerText = "❌ 失敗: " + result.msg;
         }
+      } catch (e) {
+        status.innerText = "❌ 403/ERR: 授權未完全通過";
+      }
     }
-</script>
-
+  </script>
 </body>
 </html>
