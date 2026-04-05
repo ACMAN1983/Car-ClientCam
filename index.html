@@ -1,1 +1,135 @@
-04060126
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>UNIT TERMINAL v2.5</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+    :root { --neon: #00f3ff; }
+    body { background: #060b13; color: white; font-family: 'Orbitron', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100dvh; overflow: hidden; }
+    .terminal-container { width: 95%; max-width: 420px; background: rgba(13, 20, 32, 0.95); border: 2px solid var(--neon); border-radius: 2rem; padding: 1.5rem; box-shadow: 0 0 30px rgba(0, 243, 255, 0.2); display: flex; flex-direction: column; height: 92dvh; }
+    #video-box { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 1rem; border: 1px solid rgba(0, 243, 255, 0.3); overflow: hidden; position: relative; margin-bottom: 1.2rem; flex-shrink: 0; }
+    video { width: 100%; height: 100%; object-fit: cover; }
+    .mirror { transform: scaleX(-1); }
+    .scan-line { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: var(--neon); box-shadow: 0 0 10px var(--neon); animation: scan 4s linear infinite; pointer-events: none; z-index: 10; }
+    @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+    .neon-input { background: #0f172a; border: 1px solid #1e293b; color: var(--neon); width: 100%; padding: 0.75rem; border-radius: 0.75rem; font-size: 0.875rem; outline: none; appearance: none; }
+    #status-log { background: rgba(0,0,0,0.5); border-left: 2px solid var(--neon); padding: 0.5rem; font-size: 10px; color: #22d3ee; height: 100px; overflow-y: auto; margin-top: 1rem; border-radius: 4px; font-family: monospace; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+
+  <div class="terminal-container">
+    <div id="video-box">
+      <div id="loading" class="absolute inset-0 flex items-center justify-center text-[10px] text-cyan-400 animate-pulse uppercase tracking-widest">Initialising Sensor...</div>
+      <div id="scanner" class="scan-line hidden"></div>
+      <video id="v" playsinline autoplay muted></video>
+    </div>
+
+    <div class="flex-1 flex flex-col">
+      <h1 class="text-center font-black tracking-[0.3em] text-white mb-4 text-sm">UNIT TERMINAL v2.5</h1>
+      
+      <div class="space-y-4">
+        <div>
+          <label class="text-[9px] text-slate-500 mb-1 block uppercase ml-1">Uplink Identity (車號)</label>
+          <select id="carId" class="neon-input">
+            <option value="RDH-1983">RDH-1983</option>
+            <option value="RDE-8679">RDE-8679</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="text-[9px] text-slate-500 mb-1 block uppercase ml-1">Sensor Source (鏡頭)</label>
+          <select id="videoSource" class="neon-input">
+            <option value="">Scanning...</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-auto">
+        <button id="mainBtn" onclick="initSensor()" class="w-full py-4 bg-cyan-400 text-black font-black rounded-xl text-lg shadow-lg active:scale-95 transition-all uppercase">
+          Activate Link
+        </button>
+        <div id="status-log" class="hidden">>>> SYSTEM READY...</div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // 🔴 請確保此網址為你最新的 GAS 部署 URL
+    const GAS_URL = "https://script.google.com/macros/s/AKfycby4MYODd2hQ-J6JMLyzbgmNJDExIuu62AIx1Ga725T9GwSJb5pmSsc07tCYagVnncSL/exec";
+    
+    let currentStream = null;
+
+    window.onload = async () => {
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        const sel = document.getElementById('videoSource');
+        sel.innerHTML = '';
+        videoDevices.forEach((d, i) => {
+          const opt = document.createElement('option');
+          opt.value = d.deviceId;
+          opt.text = d.label || `Camera ${i + 1}`;
+          sel.appendChild(opt);
+        });
+      } catch (e) { alert("鏡頭初始化失敗"); }
+    };
+
+    async function initSensor() {
+      const deviceId = document.getElementById('videoSource').value;
+      const carId = document.getElementById('carId').value;
+      if (currentStream) currentStream.getTracks().forEach(t => t.stop());
+
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ 
+          video: { deviceId: { exact: deviceId } } 
+        });
+        currentStream = stream;
+        const v = document.getElementById('v');
+        v.srcObject = stream;
+        
+        const label = stream.getVideoTracks()[0].label.toLowerCase();
+        if (label.includes('front') || label.includes('user')) v.classList.add('mirror');
+        else v.classList.remove('mirror');
+
+        document.getElementById('loading').style.display = 'none';
+        document.getElementById('scanner').classList.remove('hidden');
+        document.getElementById('status-log').classList.remove('hidden');
+        
+        document.getElementById('mainBtn').innerText = "LINK ACTIVE";
+        document.getElementById('mainBtn').classList.replace('bg-cyan-400', 'bg-slate-800');
+        document.getElementById('mainBtn').classList.add('text-cyan-400');
+        
+        startGps(carId);
+      } catch (e) { alert("啟動失敗: " + e.message); }
+    }
+
+    function startGps(carId) {
+      navigator.geolocation.watchPosition(pos => {
+        const payload = {
+          carId: carId,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          speed: pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(1) : 0,
+          accuracy: Math.round(pos.coords.accuracy)
+        };
+
+        fetch(GAS_URL, {
+          method: "POST",
+          mode: "no-cors",
+          headers: { "Content-Type": "text/plain" },
+          body: JSON.stringify(payload)
+        });
+
+        const log = document.getElementById('status-log');
+        log.innerText += `\n[${new Date().toLocaleTimeString()}] SYNC OK: ${payload.lat.toFixed(4)}`;
+        log.scrollTop = log.scrollHeight;
+      }, (err) => console.error(err), { enableHighAccuracy: true });
+    }
+  </script>
+</body>
+</html>
