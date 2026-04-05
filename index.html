@@ -3,52 +3,48 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>SENTINEL v5.5 FINAL VISION</title>
+  <title>SENTINEL v6.0 FINAL</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;900&display=swap');
     :root { --neon: #00f3ff; }
     body { background: #020617; color: white; font-family: 'Orbitron', sans-serif; margin: 0; overflow: hidden; display: flex; justify-content: center; min-height: 100dvh; }
     .terminal-container { width: 100%; max-width: 420px; background: radial-gradient(circle at center, #0f172a 0%, #020617 100%); padding: 1.5rem; display: flex; flex-direction: column; }
-    #cam-box { width: 100%; height: 220px; border-radius: 1rem; overflow: hidden; position: relative; border: 2px solid var(--neon); box-shadow: 0 0 15px rgba(0,243,255,0.2); margin-bottom: 1rem; }
-    video { width: 100%; height: 100%; object-fit: cover; opacity: 0.8; }
-    .speed-gauge { width: 200px; height: 200px; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 4px double var(--neon); border-radius: 50%; box-shadow: 0 0 25px rgba(0,243,255,0.2); }
-    .speed-value { font-size: 80px; font-weight: 900; color: var(--neon); text-shadow: 0 0 10px var(--neon); }
-    .neon-select { background: #111827; border: 1px solid #374151; color: var(--neon); width: 100%; padding: 12px; border-radius: 8px; font-size: 14px; outline: none; appearance: none; }
+    #cam-box { width: 100%; height: 220px; border-radius: 1rem; overflow: hidden; border: 2px solid var(--neon); box-shadow: 0 0 15px rgba(0,243,255,0.2); margin-bottom: 1rem; }
+    video { width: 100%; height: 100%; object-fit: cover; }
+    .speed-gauge { width: 180px; height: 180px; margin: auto; display: flex; flex-direction: column; align-items: center; justify-content: center; border: 4px double var(--neon); border-radius: 50%; }
+    .speed-value { font-size: 70px; font-weight: 900; color: var(--neon); text-shadow: 0 0 10px var(--neon); }
+    .neon-select { background: #111827; border: 1px solid #374151; color: var(--neon); width: 100%; padding: 12px; border-radius: 8px; font-size: 14px; outline: none; }
+    #status-log { font-family: monospace; font-size: 10px; color: #2dd4bf; height: 40px; overflow: hidden; border-left: 2px solid var(--neon); padding-left: 10px; margin-top: 1rem; }
+    .sync-flash { animation: flash 0.5s ease; }
+    @keyframes flash { 50% { background: rgba(0, 243, 255, 0.3); } }
   </style>
 </head>
 <body>
-
-  <div class="terminal-container">
-    <div id="cam-box">
-      <video id="v" playsinline autoplay muted></video>
-      <div class="absolute top-2 left-2 text-[8px] bg-black/70 px-2 py-1 rounded border border-cyan-500">AEGIS VISION v5.5</div>
-      <canvas id="snapshot" class="hidden"></canvas>
-    </div>
-
+  <div class="terminal-container" id="main-ui">
+    <div id="cam-box"><video id="v" playsinline autoplay muted></video></div>
     <div class="flex-1 flex flex-col justify-center text-center">
       <div class="speed-gauge">
         <div id="current-speed" class="speed-value">0</div>
-        <div class="text-[10px] text-slate-500 font-bold tracking-widest">KM/H</div>
+        <div class="text-[10px] text-slate-500 font-bold tracking-widest uppercase">KM/H</div>
       </div>
-      <div class="grid grid-cols-2 gap-4 mt-8 text-[11px] text-cyan-600 font-bold">
-        <div>LAT: <span id="disp-lat" class="text-white font-mono">0.000000</span></div>
-        <div>LNG: <span id="disp-lng" class="text-white font-mono">0.000000</span></div>
+      <div class="grid grid-cols-2 gap-4 mt-8 text-[11px] text-cyan-600 font-bold uppercase">
+        <div>Lat: <span id="disp-lat" class="text-white font-mono">0.0000</span></div>
+        <div>Lng: <span id="disp-lng" class="text-white font-mono">0.0000</span></div>
       </div>
     </div>
-
-    <div class="space-y-3 bg-gray-900/40 p-4 rounded-xl border border-gray-800 mt-4">
+    <div class="space-y-3 bg-gray-900/40 p-4 rounded-xl border border-gray-800">
       <div class="flex gap-2">
-        <select id="carId" class="neon-select flex-1"><option>CONNECTING...</option></select>
-        <select id="videoSource" class="neon-select flex-1"><option>CAM SCAN...</option></select>
+        <select id="carId" class="neon-select flex-1"><option>LOADING...</option></select>
+        <select id="videoSource" class="neon-select flex-1"></select>
       </div>
-      <button onclick="initSentinel()" id="mainBtn" class="w-full py-4 bg-cyan-400 text-black font-black rounded-lg shadow-lg active:scale-95 transition-all uppercase tracking-widest">Engage Link</button>
-      <div id="status-log" class="text-[10px] text-cyan-700 font-mono mt-2 h-4 overflow-hidden">>>> STANDBY</div>
+      <button onclick="engage()" id="mainBtn" class="w-full py-4 bg-cyan-400 text-black font-black rounded-lg uppercase tracking-widest">Engage Link</button>
+      <div id="status-log">>>> STANDBY</div>
     </div>
+    <canvas id="snap" class="hidden"></canvas>
   </div>
 
   <script>
-    // 🔴 貼上您最新的 GAS 網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycbyQi8ekgjn_zBAPw3zmLVetaISOmxfR9mSjzSEAz0-bj4Dc5vmSowylLSsgx0XueGzs/exec";
 
     window.onload = async () => {
@@ -56,41 +52,35 @@
         await navigator.mediaDevices.getUserMedia({ video: true });
         const devices = await navigator.mediaDevices.enumerateDevices();
         const vSel = document.getElementById('videoSource');
-        vSel.innerHTML = '';
         devices.filter(d => d.kind === 'videoinput').forEach((d, i) => vSel.add(new Option(d.label || `CAM ${i+1}`, d.deviceId)));
-
         const res = await fetch(`${GAS_URL}?action=getSheets`);
         const names = await res.json();
         const carSel = document.getElementById('carId');
         carSel.innerHTML = '';
         names.forEach(n => carSel.add(new Option(n, n)));
-        document.getElementById('status-log').innerText = ">>> HUB ONLINE";
-      } catch (e) { document.getElementById('status-log').innerText = ">>> LINK ERR"; }
+        document.getElementById('status-log').innerText = ">>> HUB CONNECTED";
+      } catch (e) { document.getElementById('status-log').innerText = ">>> HUB ERR: " + e.message; }
     };
 
-    async function initSentinel() {
+    async function engage() {
       const devId = document.getElementById('videoSource').value;
-      const carId = document.getElementById('carId').value;
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: devId } } });
-        document.getElementById('v').srcObject = stream;
-        document.getElementById('mainBtn').innerText = "SYSTEM ACTIVE";
-        document.getElementById('mainBtn').disabled = true;
-        document.getElementById('mainBtn').style.opacity = "0.5";
-        startTracking(carId);
-      } catch (e) { alert("INIT FAILED"); }
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: devId } } });
+      document.getElementById('v').srcObject = stream;
+      document.getElementById('mainBtn').disabled = true;
+      document.getElementById('mainBtn').style.opacity = "0.5";
+      startSync();
     }
 
-    function startTracking(carId) {
+    function startSync() {
+      const carId = document.getElementById('carId').value;
       navigator.geolocation.watchPosition(pos => {
-        const speedKmh = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
-        document.getElementById('current-speed').innerText = speedKmh;
-        document.getElementById('disp-lat').innerText = pos.coords.latitude.toFixed(6);
-        document.getElementById('disp-lng').innerText = pos.coords.longitude.toFixed(6);
+        const speed = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
+        document.getElementById('current-speed').innerText = speed;
+        document.getElementById('disp-lat').innerText = pos.coords.latitude.toFixed(4);
+        document.getElementById('disp-lng').innerText = pos.coords.longitude.toFixed(4);
 
-        // 核心突破：自動擷取 + 極致壓縮 (320x240, 0.3 品質)
         const video = document.getElementById('v');
-        const canvas = document.getElementById('snapshot');
+        const canvas = document.getElementById('snap');
         canvas.width = 320; canvas.height = 240;
         canvas.getContext('2d').drawImage(video, 0, 0, 320, 240);
         const base64 = canvas.toDataURL("image/jpeg", 0.3);
@@ -98,12 +88,22 @@
         fetch(GAS_URL, {
           method: "POST",
           body: JSON.stringify({
-            data: { carId, lat: pos.coords.latitude, lng: pos.coords.longitude, speed: speedKmh, accuracy: pos.coords.accuracy },
+            data: { carId, lat: pos.coords.latitude, lng: pos.coords.longitude, speed, accuracy: pos.coords.accuracy },
             imageString: base64
           })
-        }).then(() => {
-          document.getElementById('status-log').innerText = ">>> UPLINK OK: " + new Date().toLocaleTimeString();
-        });
+        })
+        .then(r => r.json())
+        .then(r => {
+          if(r.status === "SUCCESS") {
+            const log = document.getElementById('status-log');
+            log.innerText = ">>> UPLINK OK: " + new Date().toLocaleTimeString();
+            document.getElementById('main-ui').classList.add('sync-flash');
+            setTimeout(() => document.getElementById('main-ui').classList.remove('sync-flash'), 500);
+          } else {
+            document.getElementById('status-log').innerText = ">>> ERR: " + r.msg;
+          }
+        })
+        .catch(e => { document.getElementById('status-log').innerText = ">>> 403/AUTH ERR"; });
       }, null, { enableHighAccuracy: true });
     }
   </script>
