@@ -3,44 +3,37 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>AEGIS UNIT TERMINAL v4.0 Vision</title>
+  <title>UNIT TERMINAL v4.0-1 VISION</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap');
-    :root { --neon: #00f3ff; --warn: #f43f5e; }
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+    :root { --neon: #00f3ff; }
     body { background: #020617; color: white; font-family: 'Orbitron', sans-serif; margin: 0; overflow: hidden; display: flex; justify-content: center; min-height: 100dvh; }
     
     .terminal-container { 
       width: 100%; max-width: 450px; background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
-      padding: 1rem; display: flex; flex-direction: column; border-left: 1px solid rgba(0, 243, 255, 0.2); border-right: 1px solid rgba(0, 243, 255, 0.2);
+      padding: 1rem; display: flex; flex-direction: column; border: 1px solid rgba(0, 243, 255, 0.1);
     }
 
     #cam-preview { 
-      width: 100%; height: 200px; border-radius: 1rem; overflow: hidden; position: relative; border: 1px solid rgba(0, 243, 255, 0.3); margin-bottom: 1rem;
+      width: 100%; height: 220px; border-radius: 1rem; overflow: hidden; position: relative; 
+      border: 2px solid rgba(0, 243, 255, 0.3); margin-bottom: 1rem; flex-shrink: 0;
     }
-    video { width: 100%; height: 100%; object-fit: cover; opacity: 0.6; }
-
-    /* 背景畫布，用於截圖 (隱藏) */
+    video { width: 100%; height: 100%; object-fit: cover; opacity: 0.7; }
     canvas#snapshot { display: none; }
 
     .speed-gauge {
-      position: relative; width: 220px; height: 220px; margin: 0 auto;
+      width: 200px; height: 200px; margin: auto;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      border: 4px double var(--neon); border-radius: 50%; box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
-      background: rgba(0,0,0,0.3);
+      border: 4px double var(--neon); border-radius: 50%; box-shadow: 0 0 20px rgba(0, 243, 255, 0.15);
     }
-    .speed-value { font-size: 80px; font-weight: 900; line-height: 1; color: var(--neon); text-shadow: 0 0 15px var(--neon); font-family: 'Orbitron', sans-serif; }
-    .hud-data { font-family: 'Rajdhani', sans-serif; font-size: 13px; color: #38bdf8; letter-spacing: 1px; }
+    .speed-value { font-size: 70px; font-weight: 900; line-height: 1; color: var(--neon); text-shadow: 0 0 10px var(--neon); }
 
-    .neon-select { background: #1e293b; border: 1px solid #334155; color: var(--neon); width: 100%; padding: 12px; border-radius: 8px; font-size: 14px; outline: none; appearance: none; }
-    #status-log { font-family: 'Courier New', monospace; font-size: 10px; color: #2dd4bf; background: rgba(0,0,0,0.6); padding: 8px; height: 60px; overflow-y: auto; border-radius: 4px; margin-top: auto; }
+    .neon-select { background: #111827; border: 1px solid #374151; color: var(--neon); width: 100%; padding: 10px; border-radius: 8px; font-size: 12px; outline: none; }
+    #status-log { font-family: monospace; font-size: 10px; color: #2dd4bf; background: rgba(0,0,0,0.5); padding: 8px; height: 50px; overflow-y: auto; border-radius: 4px; margin-top: 1rem; }
     
-    /* 上傳中的遮罩動畫 */
-    .upload-overlay {
-      position: absolute; inset: 0; background: rgba(0,0,0,0.8); z-index: 100;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      color: var(--warn); font-size: 12px; font-weight: bold; border-radius: 1rem;
-    }
+    .sync-active { animation: blink 0.5s infinite; color: #f43f5e; }
+    @keyframes blink { 50% { opacity: 0; } }
   </style>
 </head>
 <body>
@@ -48,115 +41,101 @@
   <div class="terminal-container">
     <div id="cam-preview">
       <video id="v" playsinline autoplay muted></video>
-      <div class="absolute top-2 left-2 text-[8px] bg-cyan-950/80 px-2 py-1 rounded border border-cyan-500">AEGIS FEED</div>
+      <div class="absolute top-2 left-2 text-[8px] bg-black/60 px-2 py-1 rounded border border-cyan-500">AEGIS VISION</div>
+      <div id="sync-icon" class="absolute top-2 right-2 text-[8px] hidden">● UPLINKING</div>
       <canvas id="snapshot"></canvas>
-      
-      <div id="sync-overlay" class="upload-overlay hidden tracking-widest uppercase">
-        <div class="animate-pulse">Image UpLink...</div>
-      </div>
     </div>
 
-    <div class="flex-1 flex flex-col items-center justify-around py-4">
+    <div class="flex-1 flex flex-col justify-center">
       <div class="speed-gauge">
         <div id="current-speed" class="speed-value">0</div>
-        <div class="text-[12px] text-slate-500 tracking-[0.4em] font-bold">km/h</div>
+        <div class="text-[10px] text-slate-500 tracking-widest font-bold">km/h</div>
       </div>
-
-      <div class="grid grid-cols-2 gap-8 w-full hud-data text-center">
-        <div><div class="text-[9px] text-slate-500 uppercase">Lat</div><div id="disp-lat">0.000000</div></div>
-        <div><div class="text-[9px] text-slate-500 uppercase">Lng</div><div id="disp-lng">0.000000</div></div>
+      <div class="grid grid-cols-2 gap-4 w-full mt-6 text-center text-[11px] text-cyan-600 font-bold">
+        <div>LAT: <span id="disp-lat" class="text-white">0.0000</span></div>
+        <div>LNG: <span id="disp-lng" class="text-white">0.0000</span></div>
       </div>
     </div>
 
-    <div class="space-y-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
+    <div class="space-y-3 bg-gray-900/40 p-4 rounded-xl border border-gray-800">
       <div class="flex gap-2">
-        <select id="carId" class="neon-select flex-1"><option>DETECTION UNIT...</option></select>
-        <select id="videoSource" class="neon-select flex-1"><option value="">CAM SCAN...</option></select>
+        <select id="carId" class="neon-select"><option>DETECTION UNIT...</option></select>
+        <select id="videoSource" class="neon-select"><option value="">CAM SCAN...</option></select>
       </div>
-      <button id="mainBtn" onclick="initAegis()" class="w-full py-4 bg-cyan-500 text-black font-black rounded-xl text-lg shadow-[0_0_15px_rgba(6,182,212,0.5)] active:scale-95 transition-all">
+      <button id="mainBtn" onclick="initAegis()" class="w-full py-4 bg-cyan-500 text-black font-black rounded-lg text-sm shadow-lg active:scale-95 transition-all">
         ACTIVATE AEGIS LINK
       </button>
-      <div id="status-log">>>> INITIALIZING SYSTEM...</div>
+      <div id="status-log">>>> STANDBY...</div>
     </div>
   </div>
 
   <script>
-    // 🔴 請務必更換為你最新的 GAS 部署網址 (確認結尾是 /exec)
+    // 🔴 請確保換成你最新的 GAS 網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycby4MYODd2hQ-J6JMLyzbgmNJDExIuu62AIx1Ga725T9GwSJb5pmSsc07tCYagVnncSL/exec";
     let currentStream = null;
 
     window.onload = async () => {
-      // 1. 初始化相機與 HUB 連線 (同 v3.9，略)
-      // ...
+      try {
+        await navigator.mediaDevices.getUserMedia({ video: true });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(d => d.kind === 'videoinput');
+        const vSel = document.getElementById('videoSource');
+        vSel.innerHTML = '';
+        videoDevices.forEach((d, i) => vSel.add(new Option(d.label || `CAM ${i+1}`, d.deviceId)));
+
+        const response = await fetch(`${GAS_URL}?action=getSheets`);
+        const sheetNames = await response.json();
+        const carSel = document.getElementById('carId');
+        carSel.innerHTML = '';
+        sheetNames.forEach(name => carSel.add(new Option(name, name)));
+        document.getElementById('status-log').innerText = ">>> HUB READY.";
+      } catch (e) { document.getElementById('status-log').innerText = ">>> HUB ERR."; }
     };
 
     async function initAegis() {
-      // 啟動相機 (同 v3.9，略)
-      // ...
+      const devId = document.getElementById('videoSource').value;
+      const carId = document.getElementById('carId').value;
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: devId } } });
+        document.getElementById('v').srcObject = stream;
+        currentStream = stream;
+        
+        document.getElementById('mainBtn').innerText = "LINK ACTIVE";
+        document.getElementById('mainBtn').disabled = true;
+        document.getElementById('mainBtn').style.background = "#1f2937";
+        document.getElementById('mainBtn').style.color = "#06b6d4";
+        
+        startTracking(carId);
+      } catch (e) { alert("INIT FAILED"); }
     }
 
-    /**
-      * 核心技術突破：抓取截圖並與數據同步發送
-      */
-    function startTacticalLink(carId) {
+    function startTracking(carId) {
       navigator.geolocation.watchPosition(pos => {
         const speedKmh = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
         document.getElementById('current-speed').innerText = speedKmh;
-        document.getElementById('disp-lat').innerText = pos.coords.latitude.toFixed(6);
-        document.getElementById('disp-lng').innerText = pos.coords.longitude.toFixed(6);
+        document.getElementById('disp-lat').innerText = pos.coords.latitude.toFixed(4);
+        document.getElementById('disp-lng').innerText = pos.coords.longitude.toFixed(4);
 
-        // -- 打包數據與影像 ---
-        
-        // 1. 在隱藏的畫布上繪製當前視訊畫面
+        // 截圖邏輯
         const video = document.getElementById('v');
         const canvas = document.getElementById('snapshot');
-        canvas.width = video.videoWidth;   // 設定畫布寬度為視訊原生寬度
-        canvas.height = video.videoHeight; // 設定畫布高度為視訊原生高度
-        canvas.getContext('2d').drawImage(video, 0, 0); // 繪製畫面
+        canvas.width = 400; canvas.height = 300;
+        canvas.getContext('2d').drawImage(video, 0, 0, 400, 300);
+        const base64 = canvas.toDataURL("image/jpeg", 0.6);
 
-        // 2. 將畫布內容轉為 Base64 JPG 字串
-        const base64ImageString = canvas.toDataURL("image/jpeg", 0.7); // 壓縮率 0.7
+        document.getElementById('sync-icon').classList.remove('hidden');
+        document.getElementById('sync-icon').classList.add('sync-active');
 
-        const payload = {
-          carId: carId,
-          lat: pos.coords.latitude,
-          lng: pos.coords.longitude,
-          speed: speedKmh,
-          accuracy: Math.round(pos.coords.accuracy)
-        };
-
-        // 3. 打包所有資料
-        const requestBody = {
-          data: payload,
-          imageString: base64ImageString // 數據包裡包含圖片
-        };
-
-        // 開啟上傳遮罩
-        document.getElementById('sync-overlay').classList.remove('hidden');
-
-        // 4. 發送複合請求 (模式從 no-cors 改為標準 cors，因為圖片大)
         fetch(GAS_URL, {
           method: "POST",
-          mode: "cors", // 🔴 改為 cors 模式以支援大資料上傳與雙向確認
-          headers: { "Content-Type": "text/plain" }, // GAS 接收標準
-          body: JSON.stringify(requestBody)
-        })
-        .then(response => response.json()) // 解析後端回傳的成功/失敗訊息
-        .then(result => {
-          if (result.status === "SUCCESS") {
-            const log = document.getElementById('status-log');
-            log.innerText += `\n[${new Date().toLocaleTimeString()}] SYNC OK`;
-            log.scrollTop = log.scrollHeight;
-          } else {
-            console.error("UpLink Error: " + result.message);
-          }
-        })
-        .catch(err => console.error(err))
-        .finally(() => {
-          // 關閉上傳遮罩
-          document.getElementById('sync-overlay').classList.add('hidden');
+          body: JSON.stringify({
+            data: { carId, lat: pos.coords.latitude, lng: pos.coords.longitude, speed: speedKmh, accuracy: pos.coords.accuracy },
+            imageString: base64
+          })
+        }).then(() => {
+            document.getElementById('status-log').innerText += `\n[${new Date().toLocaleTimeString()}] SYNC OK`;
+            document.getElementById('sync-icon').classList.add('hidden');
         });
-
       }, null, { enableHighAccuracy: true });
     }
   </script>
