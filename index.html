@@ -3,89 +3,90 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>SENTINEL TERMINAL v3.8 30 版 (2026年4月6日凌晨1:42)</title>
+  <title>SENTINEL v3.9 AEGIS TERMINAL</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap');
     :root { --neon: #00f3ff; }
-    body { background: #020617; color: white; font-family: 'Orbitron', sans-serif; margin: 0; overflow: hidden; }
+    body { background: #020617; color: white; font-family: 'Orbitron', sans-serif; margin: 0; overflow: hidden; display: flex; justify-content: center; min-height: 100dvh; }
+    
+    .terminal-container { 
+      width: 100%; max-width: 450px; background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+      padding: 1rem; display: flex; flex-direction: column; opacity: 0; pointer-events: none; transition: opacity 0.5s;
+    }
 
-    /* 啟動前設定遮罩 */
+    /* 🔥 關鍵修正：提升視訊抬頭的高度 */
+    #cam-preview { 
+      width: 100%; height: 200px; /* 從 120px 提升到 200px */
+      border-radius: 1rem; overflow: hidden; position: relative; border: 1px solid rgba(0, 243, 255, 0.3); margin-bottom: 1rem;
+    }
+    video { width: 100%; height: 100%; object-fit: cover; opacity: 0.5; }
+
+    /* 圓形時速錶儀表 */
+    .speed-gauge {
+      position: relative; width: 220px; height: 220px; margin: 1.5rem auto;
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      border: 4px double var(--neon); border-radius: 50%; box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
+      background: rgba(0,0,0,0.3);
+    }
+    .speed-value { font-size: 80px; font-weight: 900; line-height: 1; color: var(--neon); text-shadow: 0 0 15px var(--neon); }
+    .hud-label { text-transform: uppercase; font-size: 10px; color: #64748b; letter-spacing: 1px; margin-bottom: 2px; }
+
+    /* 遮罩設定介面 */
     #setup-overlay {
-      position: fixed; inset: 0; z-index: 100; background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+      position: fixed; inset: 0; z-index: 100; background: #020617;
       display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem;
     }
-    
-    /* 戰術儀表容器 */
-    .terminal-container { 
-      width: 100%; max-width: 450px; margin: 0 auto; height: 100dvh;
-      display: flex; flex-direction: column; padding: 1rem; opacity: 0; pointer-events: none; transition: opacity 0.5s;
-    }
-
-    /* 圓形時速錶樣式 */
-    .speed-gauge {
-      position: relative; width: 240px; height: 240px; margin: 2rem auto;
-      display: flex; flex-direction: column; align-items: center; justify-content: center;
-      border: 4px double var(--neon); border-radius: 50%; box-shadow: 0 0 30px rgba(0, 243, 255, 0.2);
-    }
-    .speed-value { font-size: 90px; font-weight: 900; color: var(--neon); text-shadow: 0 0 15px var(--neon); line-height: 1; }
-    
-    /* 相機預覽小窗 */
-    #cam-preview { width: 100%; height: 120px; border-radius: 1rem; overflow: hidden; border: 1px solid rgba(0, 243, 255, 0.3); margin-bottom: 1rem; position: relative; }
-    video { width: 100%; height: 100%; object-fit: cover; opacity: 0.4; }
-
     .neon-input { background: #1e293b; border: 1px solid var(--neon); color: var(--neon); width: 100%; padding: 1rem; border-radius: 0.75rem; text-align: center; margin-bottom: 1rem; appearance: none; outline: none; }
-    .neon-btn { background: var(--neon); color: #020617; font-weight: 900; width: 100%; padding: 1.25rem; border-radius: 0.75rem; box-shadow: 0 0 20px var(--neon); transition: all 0.2s; text-transform: uppercase; letter-spacing: 2px; }
+    .neon-btn { background: var(--neon); color: #020617; font-weight: 900; width: 100%; padding: 1.25rem; border-radius: 0.75rem; box-shadow: 0 0 15px var(--neon); text-transform: uppercase; letter-spacing: 2px; transition: all 0.2s; }
     .neon-btn:active { transform: scale(0.95); opacity: 0.8; }
     
-    #status-log { font-family: monospace; font-size: 10px; color: #2dd4bf; background: rgba(0,0,0,0.5); padding: 0.5rem; height: 60px; overflow-y: auto; border-radius: 4px; margin-top: auto; border-left: 2px solid var(--neon); }
-    .hud-label { text-transform: uppercase; font-size: 10px; color: #64748b; letter-spacing: 1px; margin-bottom: 2px; }
+    #status-log { font-family: monospace; font-size: 10px; color: #2dd4bf; background: rgba(0,0,0,0.5); padding: 0.5rem; height: 50px; overflow-y: auto; border-radius: 4px; margin-top: auto; border-left: 2px solid var(--neon); }
   </style>
 </head>
 <body>
 
   <div id="setup-overlay">
     <div class="text-center mb-8">
-      <h1 class="text-cyan-400 font-black tracking-[0.3em] text-2xl uppercase">Sentinel v3.8</h1>
-      <p class="text-[10px] text-cyan-800 font-mono italic">Pre-Mission Hardware Handshake</p>
+      <h1 class="text-cyan-400 font-black tracking-[0.3em] text-2xl uppercase">Sentinel v3.9</h1>
+      <p class="text-[10px] text-cyan-800 font-mono italic tracking-widest">Aegis Hub Handshake</p>
     </div>
 
     <div class="w-full max-w-xs space-y-4">
       <div>
-        <label class="hud-label ml-1">Select Active Unit (車號)</label>
+        <label class="hud-label ml-1">SELECT ACTIVE UNIT</label>
         <select id="carId" class="neon-input">
           <option>SCANNING HUB...</option>
         </select>
       </div>
       
       <div>
-        <label class="hud-label ml-1">Sensor Source (鏡頭)</label>
+        <label class="hud-label ml-1">SENSOR SOURCE</label>
         <select id="videoSource" class="neon-input">
-          <option value="">SCANNING HARDWARE...</option>
+          <option value="">SCANNING CAM...</option>
         </select>
       </div>
 
-      <button onclick="engageTerminal()" class="neon-btn mt-4">Engage Link</button>
+      <button onclick="engageTerminal()" class="neon-btn mt-4 w-full">Engage Link</button>
     </div>
-    
-    <div id="setup-msg" class="mt-12 text-[10px] text-cyan-600 animate-pulse font-mono tracking-widest">WAITING FOR COMMAND...</div>
+    <div id="setup-msg" class="mt-12 text-[10px] text-cyan-600 animate-pulse font-mono tracking-widest">Handshake standby...</div>
   </div>
 
   <div id="terminal" class="terminal-container">
     <div id="cam-preview">
       <video id="v" playsinline autoplay muted></video>
-      <div class="absolute top-2 left-2 text-[8px] bg-cyan-900 px-2 py-1 border border-cyan-400 rounded">LIVE SENSOR</div>
+      <div class="absolute top-2 left-2 text-[8px] bg-cyan-950/80 px-2 py-1 rounded border border-cyan-500">AEGIS FEED</div>
     </div>
 
     <div class="flex-1 flex flex-col items-center">
-      <div id="unit-tag" class="text-xs text-cyan-400 border border-cyan-400 px-4 py-1 rounded-full mb-6 tracking-widest bg-cyan-950/30">UNIT: STANDBY</div>
+      <div id="unit-tag" class="text-xs text-cyan-400 border border-cyan-400 px-4 py-1 rounded-full mb-4 tracking-widest bg-cyan-950/30">UNIT: STANDBY</div>
       
       <div class="speed-gauge">
         <div id="current-speed" class="speed-value">0</div>
-        <div class="text-[14px] text-slate-500 tracking-[0.4em] mt-2 font-bold uppercase">km/h</div>
+        <div class="text-[14px] text-slate-500 tracking-[0.4em] font-bold">km/h</div>
       </div>
 
-      <div class="grid grid-cols-2 gap-10 w-full px-6 mt-6 text-center">
+      <div class="grid grid-cols-2 gap-10 w-full px-6 mt-4 text-center">
         <div>
           <div class="hud-label">Latitude</div>
           <div id="disp-lat" class="text-cyan-500 font-bold font-mono text-sm tracking-tighter">0.000000</div>
@@ -97,18 +98,17 @@
       </div>
     </div>
 
-    <div id="status-log">>>> DATA LINK STANDBY...</div>
+    <div id="status-log">>>> LINK STANDBY...</div>
   </div>
 
   <script>
-    // 🔴 請務必更換為你自己的 GAS 部署網址
     const GAS_URL = "https://script.google.com/macros/s/AKfycby4MYODd2hQ-J6JMLyzbgmNJDExIuu62AIx1Ga725T9GwSJb5pmSsc07tCYagVnncSL/exec";
     let currentStream = null;
 
-    // 初始化讀取
+    // 初始化：抓取清單
     window.onload = async () => {
       try {
-        // 1. 初始化鏡頭
+        // 相機偵測
         await navigator.mediaDevices.getUserMedia({ video: true });
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(d => d.kind === 'videoinput');
@@ -116,47 +116,46 @@
         vSel.innerHTML = '';
         videoDevices.forEach((d, i) => vSel.add(new Option(d.label || `Camera ${i+1}`, d.deviceId)));
 
-        // 2. 初始化車號 (從 Google Sheets 抓分頁)
+        // 車輛偵測
         const response = await fetch(`${GAS_URL}?action=getSheets`);
         const sheetNames = await response.json();
         const carSel = document.getElementById('carId');
         carSel.innerHTML = '';
         sheetNames.forEach(name => carSel.add(new Option(name, name)));
         
-        document.getElementById('setup-msg').innerText = "SYSTEM READY. SELECT UNIT AND ENGAGE.";
+        document.getElementById('setup-msg').innerText = "HANDSHAKE COMPLETE. READY TO ENGAGE.";
       } catch (e) {
         document.getElementById('setup-msg').innerText = "ERROR: HUB CONNECTION FAILED.";
       }
     };
 
-    // 啟動儀表
+    // 啟動終端
     async function engageTerminal() {
       const carId = document.getElementById('carId').value;
       const devId = document.getElementById('videoSource').value;
       
-      if(!carId || carId.includes("SCANNING")) return alert("Please select a unit first.");
+      if(!carId || carId.includes("SCANNING")) return alert("Please select a unit.");
 
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: devId } } });
         document.getElementById('v').srcObject = stream;
         
-        // 切換 UI 顯示
+        // 切換 UI
         document.getElementById('setup-overlay').style.display = 'none';
         const term = document.getElementById('terminal');
         term.style.opacity = '1';
         term.style.pointerEvents = 'auto';
         document.getElementById('unit-tag').innerText = `UNIT: ${carId}`;
         
-        startDataSync(carId);
-      } catch (e) { alert("Hardware Engagement Failed: " + e.message); }
+        startTacticalLink(carId);
+      } catch (e) { alert("ENGAGEMENT FAILED: " + e.message); }
     }
 
-    // GPS 與數據傳輸核心
-    function startDataSync(carId) {
+    // GPS 與數據同步核心
+    function startTacticalLink(carId) {
       navigator.geolocation.watchPosition(pos => {
         const speedKmh = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
         
-        // 更新 UI 數據
         document.getElementById('current-speed').innerText = speedKmh;
         document.getElementById('disp-lat').innerText = pos.coords.latitude.toFixed(6);
         document.getElementById('disp-lng').innerText = pos.coords.longitude.toFixed(6);
@@ -173,7 +172,7 @@
         fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
 
         const log = document.getElementById('status-log');
-        log.innerText += `\n[${new Date().toLocaleTimeString()}] UPLINK SUCCESS`;
+        log.innerText += `\n[${new Date().toLocaleTimeString()}] SYNC OK`;
         log.scrollTop = log.scrollHeight;
       }, null, { enableHighAccuracy: true });
     }
