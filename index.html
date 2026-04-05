@@ -1,1 +1,168 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>UNIT TERMINAL RWD</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
+    :root { --neon: #00f3ff; --error: #ff003c; }
+    body { background: #060b13; color: white; font-family: 'Orbitron', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100dvh; overflow: hidden; }
+    
+    /* RWD 容器：手機滿版，桌機限寬 */
+    .terminal-container { 
+      width: 100%; max-width: 450px; height: 90dvh; 
+      background: rgba(13, 20, 32, 0.9); border: 2px solid var(--neon); 
+      border-radius: 2rem; padding: 1.5rem; display: flex; flex-direction: column;
+      box-shadow: 0 0 30px rgba(0, 243, 255, 0.15); position: relative;
+    }
 
+    #video-frame { 
+      width: 100%; aspect-ratio: 16 / 9; background: #000; 
+      border-radius: 1.2rem; border: 1px solid rgba(0, 243, 255, 0.3); 
+      overflow: hidden; position: relative; margin-bottom: 1.5rem;
+    }
+    video { width: 100%; height: 100%; object-fit: cover; }
+    .mirror { transform: scaleX(-1); } /* 前鏡頭鏡像 */
+
+    .scan-line { 
+      position: absolute; top: 0; left: 0; width: 100%; height: 2px; 
+      background: var(--neon); box-shadow: 0 0 10px var(--neon); 
+      animation: scan 4s linear infinite; z-index: 10; pointer-events: none; 
+    }
+    @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
+
+    select, button { font-family: 'Orbitron', sans-serif; transition: all 0.2s; }
+    .neon-input { background: #0f172a; border: 1px solid #1e293b; color: var(--neon); text-align: center; }
+    .neon-input:focus { border-color: var(--neon); box-shadow: 0 0 10px rgba(0, 243, 255, 0.3); }
+  </style>
+</head>
+<body>
+
+  <div class="terminal-container">
+    <div id="video-frame">
+      <div id="loading-msg" class="absolute inset-0 flex items-center justify-center text-[10px] text-cyan-400 animate-pulse">OFFLINE</div>
+      <div id="scanner" class="scan-line hidden"></div>
+      <video id="v" playsinline autoplay muted></video>
+    </div>
+
+    <div class="flex-1 flex flex-col justify-between">
+      <div>
+        <h1 class="text-center font-black tracking-[0.3em] text-lg mb-6 text-white">UNIT TERMINAL v2.5</h1>
+        
+        <div class="space-y-4">
+          <div class="text-[10px] text-slate-500 mb-1 ml-2">UPLINK IDENTITY</div>
+          <select id="carId" class="w-full neon-input py-3 rounded-xl text-sm font-bold appearance-none cursor-pointer">
+            <option value="RED-0938">RED-0938 (PRIMARY)</option>
+            <option value="BLUE-1024">BLUE-1024</option>
+            <option value="TEST-99">TEST-SYSTEM</option>
+          </select>
+
+          <div class="text-[10px] text-slate-500 mb-1 ml-2">SENSOR SOURCE</div>
+          <select id="videoSource" class="w-full neon-input py-3 rounded-xl text-sm font-bold appearance-none cursor-pointer">
+            <option value="">WAITING FOR HARDWARE...</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="mt-auto">
+        <button id="mainBtn" onclick="initSensor()" class="w-full py-5 bg-cyan-400 text-black font-black rounded-2xl text-xl shadow-lg active:scale-95 uppercase">
+          Initialize Link
+        </button>
+        <div id="status-log" class="mt-4 p-3 bg-black/50 border-l-2 border-cyan-500 rounded text-[9px] text-cyan-500 font-mono hidden h-20 overflow-y-auto">
+          >>> SYSTEM READY...
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const GAS_URL = "https://script.google.com/macros/s/AKfycby4MYODd2hQ-J6JMLyzbgmNJDExluu62Alx1Ga725T9GwSJb5pmSsc07tCYagVnncSL/exec";
+    const videoElement = document.getElementById('v');
+    const sourceSelect = document.getElementById('videoSource');
+    let currentStream = null;
+
+    // 1. 初始化讀取鏡頭列表
+    window.onload = async () => {
+      try {
+        // 先請求一次權限，否則拿不到鏡頭名稱
+        await navigator.mediaDevices.getUserMedia({ video: true });
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        
+        sourceSelect.innerHTML = '';
+        videoDevices.forEach((device, index) => {
+          const option = document.createElement('option');
+          option.value = device.deviceId;
+          option.text = device.label || `Camera ${index + 1}`;
+          sourceSelect.appendChild(option);
+        });
+      } catch (e) {
+        sourceSelect.innerHTML = '<option value="">PERMISSION DENIED</option>';
+      }
+    };
+
+    // 2. 啟動感測系統
+    async function initSensor() {
+      const deviceId = sourceSelect.value;
+      const carId = document.getElementById('carId').value;
+      
+      if (currentStream) {
+        currentStream.getTracks().forEach(track => track.stop());
+      }
+
+      try {
+        const constraints = {
+          video: { deviceId: deviceId ? { exact: deviceId } : undefined },
+          audio: false
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+        currentStream = stream;
+        videoElement.srcObject = stream;
+        
+        // 判斷是否為前鏡頭（通常名稱包含 user 或 front）以決定是否鏡像
+        const trackLabel = stream.getVideoTracks()[0].label.toLowerCase();
+        if (trackLabel.includes('user') || trackLabel.includes('front')) {
+          videoElement.classList.add('mirror');
+        } else {
+          videoElement.classList.remove('mirror');
+        }
+
+        document.getElementById('loading-msg').style.display = 'none';
+        document.getElementById('scanner').classList.remove('hidden');
+        document.getElementById('status-log').classList.remove('hidden');
+        
+        const btn = document.getElementById('mainBtn');
+        btn.innerText = "LINK ACTIVE";
+        btn.classList.replace('bg-cyan-400', 'bg-slate-800');
+        btn.classList.add('text-cyan-400');
+        
+        startGpsTracking(carId);
+      } catch (e) {
+        alert("SENSOR ERROR: " + e.message);
+      }
+    }
+
+    // 3. GPS 與數據同步
+    function startGpsTracking(carId) {
+      navigator.geolocation.watchPosition(pos => {
+        const payload = {
+          carId: carId,
+          lat: pos.coords.latitude,
+          lng: pos.coords.longitude,
+          speed: pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(1) : 0,
+          accuracy: Math.round(pos.coords.accuracy)
+        };
+
+        fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
+
+        const log = document.getElementById('status-log');
+        log.innerHTML += `\n> SYNC: ${payload.lat.toFixed(4)}, ${payload.lng.toFixed(4)}`;
+        log.scrollTop = log.scrollHeight;
+      }, null, { enableHighAccuracy: true });
+    }
+  </script>
+</body>
+</html>
