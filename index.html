@@ -9,14 +9,14 @@
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap');
     :root { --neon: #00f3ff; }
     body { background: #060b13; color: white; font-family: 'Orbitron', sans-serif; margin: 0; display: flex; justify-content: center; align-items: center; min-height: 100dvh; overflow: hidden; }
-    .terminal-container { width: 95%; max-width: 420px; background: rgba(13, 20, 32, 0.95); border: 2px solid var(--neon); border-radius: 2rem; padding: 1.5rem; box-shadow: 0 0 30px rgba(0, 243, 255, 0.2); display: flex; flex-direction: column; height: 90dvh; }
+    .terminal-container { width: 95%; max-width: 420px; background: rgba(13, 20, 32, 0.95); border: 2px solid var(--neon); border-radius: 2rem; padding: 1.5rem; box-shadow: 0 0 30px rgba(0, 243, 255, 0.2); display: flex; flex-direction: column; height: 92dvh; }
     #video-box { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 1rem; border: 1px solid rgba(0, 243, 255, 0.3); overflow: hidden; position: relative; margin-bottom: 1.2rem; flex-shrink: 0; }
     video { width: 100%; height: 100%; object-fit: cover; }
     .mirror { transform: scaleX(-1); }
     .scan-line { position: absolute; top: 0; left: 0; width: 100%; height: 2px; background: var(--neon); box-shadow: 0 0 10px var(--neon); animation: scan 4s linear infinite; pointer-events: none; z-index: 10; }
     @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
-    .neon-input { background: #0f172a; border: 1px solid #1e293b; color: var(--neon); width: 100%; padding: 0.75rem; border-radius: 0.75rem; font-size: 0.875rem; outline: none; }
-    #status-log { background: rgba(0,0,0,0.5); border-left: 2px solid var(--neon); padding: 0.5rem; font-size: 9px; color: #22d3ee; height: 80px; overflow-y: auto; margin-top: 1rem; border-radius: 4px; }
+    .neon-input { background: #0f172a; border: 1px solid #1e293b; color: var(--neon); width: 100%; padding: 0.75rem; border-radius: 0.75rem; font-size: 0.875rem; outline: none; appearance: none; }
+    #status-log { background: rgba(0,0,0,0.5); border-left: 2px solid var(--neon); padding: 0.5rem; font-size: 10px; color: #22d3ee; height: 100px; overflow-y: auto; margin-top: 1rem; border-radius: 4px; font-family: monospace; white-space: pre-wrap; }
   </style>
 </head>
 <body>
@@ -31,9 +31,9 @@
     <div class="flex-1 flex flex-col">
       <h1 class="text-center font-black tracking-[0.3em] text-white mb-4">UNIT TERMINAL v2.5</h1>
       
-      <div class="space-y-3">
+      <div class="space-y-4">
         <div>
-          <label class="text-[9px] text-slate-500 mb-1 block uppercase">Uplink Identity</label>
+          <label class="text-[9px] text-slate-500 mb-1 block uppercase ml-1">Uplink Identity</label>
           <select id="carId" class="neon-input">
             <option value="RED-0938">RED-0938 (PRIMARY)</option>
             <option value="BLUE-1024">BLUE-1024</option>
@@ -41,7 +41,7 @@
         </div>
 
         <div>
-          <label class="text-[9px] text-slate-500 mb-1 block uppercase">Sensor Source</label>
+          <label class="text-[9px] text-slate-500 mb-1 block uppercase ml-1">Sensor Source</label>
           <select id="videoSource" class="neon-input">
             <option value="">Scanning Hardware...</option>
           </select>
@@ -61,11 +61,11 @@
     // ------------------------------------------------------------
     // 🔴 重要：請在此處替換成你剛剛在 GAS 獲取的「網頁應用程式 URL」
     // ------------------------------------------------------------
-    const GAS_URL = "https://script.google.com/macros/s/你的部署ID/exec";
+    const GAS_URL = "https://script.google.com/macros/s/AKfycby4MYODd2hQ-J6JMLyzbgmNJDExIuu62AIx1Ga725T9GwSJb5pmSsc07tCYagVnncSL/exec";
     
     let currentStream = null;
 
-    // 1. 自動列出所有可用鏡頭
+    // 1. 自動列出鏡頭設備
     window.onload = async () => {
       try {
         await navigator.mediaDevices.getUserMedia({ video: true });
@@ -79,10 +79,10 @@
           opt.text = d.label || `Camera ${i + 1}`;
           sel.appendChild(opt);
         });
-      } catch (e) { alert("無法存取硬體鏡頭，請確認權限。"); }
+      } catch (e) { alert("鏡頭初始化失敗，請確認權限。"); }
     };
 
-    // 2. 啟動鏡頭與感測器
+    // 2. 啟動鏡頭硬體
     async function initSensor() {
       const deviceId = document.getElementById('videoSource').value;
       const carId = document.getElementById('carId').value;
@@ -96,7 +96,7 @@
         const v = document.getElementById('v');
         v.srcObject = stream;
         
-        // 前鏡頭自動鏡像
+        // 前鏡頭自動鏡像處理
         const label = stream.getVideoTracks()[0].label.toLowerCase();
         if (label.includes('front') || label.includes('user')) v.classList.add('mirror');
         else v.classList.remove('mirror');
@@ -111,10 +111,10 @@
         btn.classList.add('text-cyan-400');
         
         startGps(carId);
-      } catch (e) { alert("啟動失敗: " + e.message); }
+      } catch (e) { alert("硬體啟動失敗: " + e.message); }
     }
 
-    // 3. 啟動 GPS 追蹤並傳送到 GAS
+    // 3. GPS 數據採集與傳輸
     function startGps(carId) {
       navigator.geolocation.watchPosition(pos => {
         const payload = {
@@ -125,7 +125,7 @@
           accuracy: Math.round(pos.coords.accuracy)
         };
 
-        // 使用 no-cors 模式解決跨網域問題
+        // 使用 no-cors 模式確保跨網域 POST 成功
         fetch(GAS_URL, {
           method: "POST",
           mode: "no-cors",
