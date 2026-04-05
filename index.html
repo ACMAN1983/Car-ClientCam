@@ -3,144 +3,160 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-  <title>AEGIS UNIT TERMINAL v3.5 29 版 (2026年4月6日凌晨1:37)</title>
+  <title>SENTINEL TERMINAL v3.8 30 版 (2026年4月6日凌晨1:42)</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <style>
     @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@500;700&display=swap');
-    :root { --neon: #00f3ff; --warn: #f43f5e; }
-    body { background: #020617; color: white; font-family: 'Orbitron', sans-serif; margin: 0; overflow: hidden; display: flex; justify-content: center; min-height: 100dvh; }
+    :root { --neon: #00f3ff; }
+    body { background: #020617; color: white; font-family: 'Orbitron', sans-serif; margin: 0; overflow: hidden; }
+
+    /* 啟動前設定遮罩 */
+    #setup-overlay {
+      position: fixed; inset: 0; z-index: 100; background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
+      display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 2rem;
+    }
     
+    /* 戰術儀表容器 */
     .terminal-container { 
-      width: 100%; max-width: 450px; background: radial-gradient(circle at center, #0f172a 0%, #020617 100%);
-      padding: 1rem; display: flex; flex-direction: column; border-left: 1px solid rgba(0, 243, 255, 0.2); border-right: 1px solid rgba(0, 243, 255, 0.2);
+      width: 100%; max-width: 450px; margin: 0 auto; height: 100dvh;
+      display: flex; flex-direction: column; padding: 1rem; opacity: 0; pointer-events: none; transition: opacity 0.5s;
     }
 
-    /* 頂部相機小視窗 */
-    #cam-preview { 
-      width: 100%; height: 120px; border-radius: 1rem; overflow: hidden; position: relative; border: 1px solid rgba(0, 243, 255, 0.3); margin-bottom: 1rem;
-    }
-    video { width: 100%; height: 100%; object-fit: cover; opacity: 0.6; }
-
-    /* 核心時速錶儀表 */
+    /* 圓形時速錶樣式 */
     .speed-gauge {
-      position: relative; width: 240px; height: 240px; margin: 0 auto;
+      position: relative; width: 240px; height: 240px; margin: 2rem auto;
       display: flex; flex-direction: column; align-items: center; justify-content: center;
-      border: 4px double var(--neon); border-radius: 50%; box-shadow: 0 0 20px rgba(0, 243, 255, 0.2);
-      background: rgba(0,0,0,0.3);
+      border: 4px double var(--neon); border-radius: 50%; box-shadow: 0 0 30px rgba(0, 243, 255, 0.2);
     }
-    .speed-value { font-size: 80px; font-weight: 900; line-height: 1; color: var(--neon); text-shadow: 0 0 15px var(--neon); font-family: 'Orbitron', sans-serif; }
-    .speed-unit { font-size: 14px; color: #94a3b8; letter-spacing: 2px; margin-top: -5px; }
+    .speed-value { font-size: 90px; font-weight: 900; color: var(--neon); text-shadow: 0 0 15px var(--neon); line-height: 1; }
+    
+    /* 相機預覽小窗 */
+    #cam-preview { width: 100%; height: 120px; border-radius: 1rem; overflow: hidden; border: 1px solid rgba(0, 243, 255, 0.3); margin-bottom: 1rem; position: relative; }
+    video { width: 100%; height: 100%; object-fit: cover; opacity: 0.4; }
 
-    /* HUD 數據顯示 */
-    .hud-data { font-family: 'Rajdhani', sans-serif; font-size: 13px; color: #38bdf8; letter-spacing: 1px; }
-
-    /* 掃描線動畫 */
-    .scan-line { position: absolute; width: 100%; height: 4px; background: rgba(0, 243, 255, 0.2); animation: scan 3s linear infinite; pointer-events: none; }
-    @keyframes scan { 0% { top: 0%; } 100% { top: 100%; } }
-
-    .neon-select { background: #1e293b; border: 1px solid #334155; color: var(--neon); width: 100%; padding: 12px; border-radius: 8px; font-size: 14px; outline: none; }
-    #status-log { font-family: 'Courier New', monospace; font-size: 10px; color: #2dd4bf; background: rgba(0,0,0,0.6); padding: 8px; height: 60px; overflow-y: auto; border-radius: 4px; }
+    .neon-input { background: #1e293b; border: 1px solid var(--neon); color: var(--neon); width: 100%; padding: 1rem; border-radius: 0.75rem; text-align: center; margin-bottom: 1rem; appearance: none; outline: none; }
+    .neon-btn { background: var(--neon); color: #020617; font-weight: 900; width: 100%; padding: 1.25rem; border-radius: 0.75rem; box-shadow: 0 0 20px var(--neon); transition: all 0.2s; text-transform: uppercase; letter-spacing: 2px; }
+    .neon-btn:active { transform: scale(0.95); opacity: 0.8; }
+    
+    #status-log { font-family: monospace; font-size: 10px; color: #2dd4bf; background: rgba(0,0,0,0.5); padding: 0.5rem; height: 60px; overflow-y: auto; border-radius: 4px; margin-top: auto; border-left: 2px solid var(--neon); }
+    .hud-label { text-transform: uppercase; font-size: 10px; color: #64748b; letter-spacing: 1px; margin-bottom: 2px; }
   </style>
 </head>
 <body>
 
-  <div class="terminal-container">
-    <div id="cam-preview">
-      <div class="scan-line"></div>
-      <video id="v" playsinline autoplay muted></video>
-      <div class="absolute top-2 left-2 text-[8px] bg-cyan-950/80 px-2 py-1 rounded border border-cyan-500">LIVE FEED</div>
+  <div id="setup-overlay">
+    <div class="text-center mb-8">
+      <h1 class="text-cyan-400 font-black tracking-[0.3em] text-2xl uppercase">Sentinel v3.8</h1>
+      <p class="text-[10px] text-cyan-800 font-mono italic">Pre-Mission Hardware Handshake</p>
     </div>
 
-    <div class="flex-1 flex flex-col items-center justify-around py-4">
+    <div class="w-full max-w-xs space-y-4">
+      <div>
+        <label class="hud-label ml-1">Select Active Unit (車號)</label>
+        <select id="carId" class="neon-input">
+          <option>SCANNING HUB...</option>
+        </select>
+      </div>
+      
+      <div>
+        <label class="hud-label ml-1">Sensor Source (鏡頭)</label>
+        <select id="videoSource" class="neon-input">
+          <option value="">SCANNING HARDWARE...</option>
+        </select>
+      </div>
+
+      <button onclick="engageTerminal()" class="neon-btn mt-4">Engage Link</button>
+    </div>
+    
+    <div id="setup-msg" class="mt-12 text-[10px] text-cyan-600 animate-pulse font-mono tracking-widest">WAITING FOR COMMAND...</div>
+  </div>
+
+  <div id="terminal" class="terminal-container">
+    <div id="cam-preview">
+      <video id="v" playsinline autoplay muted></video>
+      <div class="absolute top-2 left-2 text-[8px] bg-cyan-900 px-2 py-1 border border-cyan-400 rounded">LIVE SENSOR</div>
+    </div>
+
+    <div class="flex-1 flex flex-col items-center">
+      <div id="unit-tag" class="text-xs text-cyan-400 border border-cyan-400 px-4 py-1 rounded-full mb-6 tracking-widest bg-cyan-950/30">UNIT: STANDBY</div>
+      
       <div class="speed-gauge">
         <div id="current-speed" class="speed-value">0</div>
-        <div class="speed-unit">KM/H</div>
+        <div class="text-[14px] text-slate-500 tracking-[0.4em] mt-2 font-bold uppercase">km/h</div>
       </div>
 
-      <div class="grid grid-cols-2 gap-8 w-full px-4 hud-data text-center">
+      <div class="grid grid-cols-2 gap-10 w-full px-6 mt-6 text-center">
         <div>
-          <div class="text-[10px] text-slate-500 uppercase">Latitude</div>
-          <div id="disp-lat">0.000000</div>
+          <div class="hud-label">Latitude</div>
+          <div id="disp-lat" class="text-cyan-500 font-bold font-mono text-sm tracking-tighter">0.000000</div>
         </div>
         <div>
-          <div class="text-[10px] text-slate-500 uppercase">Longitude</div>
-          <div id="disp-lng">0.000000</div>
+          <div class="hud-label">Longitude</div>
+          <div id="disp-lng" class="text-cyan-500 font-bold font-mono text-sm tracking-tighter">0.000000</div>
         </div>
       </div>
     </div>
 
-    <div class="space-y-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-800">
-      <div class="flex gap-2">
-        <div class="flex-1">
-          <select id="carId" class="neon-select">
-            <option>DETECTING UNIT...</option>
-          </select>
-        </div>
-        <div class="flex-1">
-          <select id="videoSource" class="neon-select">
-            <option value="">CAM SCAN...</option>
-          </select>
-        </div>
-      </div>
-
-      <button id="mainBtn" onclick="initAegis()" class="w-full py-4 bg-cyan-500 text-black font-black rounded-xl text-lg shadow-[0_0_15px_rgba(6,182,212,0.5)] active:scale-95 transition-all">
-        ACTIVATE AEGIS LINK
-      </button>
-
-      <div id="status-log">>>> INITIALIZING SYSTEM...</div>
-    </div>
+    <div id="status-log">>>> DATA LINK STANDBY...</div>
   </div>
 
   <script>
-    // 🔴 請確保填入正確的 GAS 部署網址
-    const GAS_URL = "https://script.google.com/macros/s/AKfycbycJyZih8ppEksbDy4VZxKh5BEgYOe_8iku8-69iWdWB27o6EsOJM-PQpe1Az6zj1SFQ/exec";
+    // 🔴 請務必更換為你自己的 GAS 部署網址
+    const GAS_URL = "https://script.google.com/macros/s/AKfycby4MYODd2hQ-J6JMLyzbgmNJDExIuu62AIx1Ga725T9GwSJb5pmSsc07tCYagVnncSL/exec";
     let currentStream = null;
 
+    // 初始化讀取
     window.onload = async () => {
-      // 1. 偵測相機
       try {
+        // 1. 初始化鏡頭
         await navigator.mediaDevices.getUserMedia({ video: true });
         const devices = await navigator.mediaDevices.enumerateDevices();
         const videoDevices = devices.filter(d => d.kind === 'videoinput');
-        const sel = document.getElementById('videoSource');
-        sel.innerHTML = '';
-        videoDevices.forEach((d, i) => sel.add(new Option(d.label || `CAM ${i+1}`, d.deviceId)));
-      } catch (e) { document.getElementById('status-log').innerText += "\n> CAM ERR"; }
+        const vSel = document.getElementById('videoSource');
+        vSel.innerHTML = '';
+        videoDevices.forEach((d, i) => vSel.add(new Option(d.label || `Camera ${i+1}`, d.deviceId)));
 
-      // 2. 偵測 Google Sheets 分頁
-      try {
+        // 2. 初始化車號 (從 Google Sheets 抓分頁)
         const response = await fetch(`${GAS_URL}?action=getSheets`);
         const sheetNames = await response.json();
-        const carSelect = document.getElementById('carId');
-        carSelect.innerHTML = '';
-        sheetNames.forEach(name => carSelect.add(new Option(name, name)));
-        document.getElementById('status-log').innerText += "\n> HUB CONNECTED";
+        const carSel = document.getElementById('carId');
+        carSel.innerHTML = '';
+        sheetNames.forEach(name => carSel.add(new Option(name, name)));
+        
+        document.getElementById('setup-msg').innerText = "SYSTEM READY. SELECT UNIT AND ENGAGE.";
       } catch (e) {
-        document.getElementById('status-log').innerText += "\n> HUB ERR";
+        document.getElementById('setup-msg').innerText = "ERROR: HUB CONNECTION FAILED.";
       }
     };
 
-    async function initAegis() {
-      const devId = document.getElementById('videoSource').value;
+    // 啟動儀表
+    async function engageTerminal() {
       const carId = document.getElementById('carId').value;
+      const devId = document.getElementById('videoSource').value;
       
+      if(!carId || carId.includes("SCANNING")) return alert("Please select a unit first.");
+
       try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { deviceId: { exact: devId } } });
         document.getElementById('v').srcObject = stream;
         
-        document.getElementById('mainBtn').innerText = "SYSTEM ONLINE";
-        document.getElementById('mainBtn').classList.replace('bg-cyan-500', 'bg-slate-800');
-        document.getElementById('mainBtn').classList.add('text-cyan-500');
+        // 切換 UI 顯示
+        document.getElementById('setup-overlay').style.display = 'none';
+        const term = document.getElementById('terminal');
+        term.style.opacity = '1';
+        term.style.pointerEvents = 'auto';
+        document.getElementById('unit-tag').innerText = `UNIT: ${carId}`;
         
-        startTacticalLink(carId);
-      } catch (e) { alert("INIT FAILED"); }
+        startDataSync(carId);
+      } catch (e) { alert("Hardware Engagement Failed: " + e.message); }
     }
 
-    function startTacticalLink(carId) {
+    // GPS 與數據傳輸核心
+    function startDataSync(carId) {
       navigator.geolocation.watchPosition(pos => {
         const speedKmh = pos.coords.speed ? Math.round(pos.coords.speed * 3.6) : 0;
         
-        // 更新 UI
+        // 更新 UI 數據
         document.getElementById('current-speed').innerText = speedKmh;
         document.getElementById('disp-lat').innerText = pos.coords.latitude.toFixed(6);
         document.getElementById('disp-lng').innerText = pos.coords.longitude.toFixed(6);
@@ -153,11 +169,11 @@
           accuracy: Math.round(pos.coords.accuracy)
         };
 
-        // 背景同步到 GS
+        // 背景 POST 到 GAS
         fetch(GAS_URL, { method: "POST", mode: "no-cors", body: JSON.stringify(payload) });
 
         const log = document.getElementById('status-log');
-        log.innerText += `\n[${new Date().toLocaleTimeString()}] SYNC OK`;
+        log.innerText += `\n[${new Date().toLocaleTimeString()}] UPLINK SUCCESS`;
         log.scrollTop = log.scrollHeight;
       }, null, { enableHighAccuracy: true });
     }
