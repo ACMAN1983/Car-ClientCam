@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>CAR SENSOR TERMINAL</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700&display=swap');
+    body { background: #060b13; color: white; font-family: 'Orbitron', sans-serif; display: flex; align-items: center; justify-content: center; min-height: 100vh; margin: 0; padding: 20px; }
+    .frame { width: 100%; max-width: 400px; border: 2px solid #00f3ff; border-radius: 2rem; padding: 30px; background: rgba(13, 20, 32, 0.95); box-shadow: 0 0 40px rgba(0, 243, 255, 0.2); }
+    video { width: 100%; aspect-ratio: 16/9; background: #000; border-radius: 1rem; object-fit: cover; transform: scaleX(-1); border: 1px solid #00f3ff55; margin-bottom: 20px; }
+    #log { font-family: monospace; font-size: 10px; color: #00f3ff; text-align: left; background: rgba(0,0,0,0.5); padding: 10px; border-radius: 5px; display: none; white-space: pre-wrap; }
+  </style>
+</head>
+<body>
+  <div class="frame text-center">
+    <video id="v" playsinline autoplay muted></video>
+    <h2 class="text-lg font-bold tracking-[0.3em] mb-6">UNIT TERMINAL</h2>
+    
+    <select id="carId" class="w-full bg-slate-800 p-4 rounded-xl mb-4 border border-slate-700 text-center outline-none">
+      <option value="RED-0938">RED-0938</option>
+      <option value="BLUE-1024">BLUE-1024</option>
+    </select>
+
+    <button id="btn" onclick="activate()" class="w-full py-5 bg-cyan-400 text-black font-black rounded-2xl shadow-lg active:scale-95 transition-all">ACTIVATE SYSTEM</button>
+    <div id="log" class="mt-4">>>> INITIALIZING...</div>
+  </div>
+
+  <script>
+    const GAS_URL = "https://script.google.com/macros/s/AKfycby4MYODd2hQ-J6JMLyzbgmNJDExluu62Alx1Ga725T9GwSJb5pmSsc07tCYagVnncSL/exec";
+
+    async function activate() {
+      try {
+        // 在 GitHub 獨立網域，這會直接觸發原生的允許視窗
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } });
+        document.getElementById('v').srcObject = stream;
+        document.getElementById('btn').style.display = 'none';
+        document.getElementById('log').style.display = 'block';
+
+        navigator.geolocation.watchPosition(pos => {
+          const payload = {
+            carId: document.getElementById('carId').value,
+            lat: pos.coords.latitude,
+            lng: pos.coords.longitude,
+            speed: pos.coords.speed ? (pos.coords.speed * 3.6).toFixed(1) : 0,
+            accuracy: Math.round(pos.coords.accuracy)
+          };
+
+          // 發送數據回 GAS (使用 no-cors)
+          fetch(GAS_URL, {
+            method: "POST",
+            mode: "no-cors",
+            body: JSON.stringify(payload)
+          });
+
+          document.getElementById('log').innerText = "LAT: " + payload.lat.toFixed(6) + "\nLNG: " + payload.lng.toFixed(6) + "\nSYNC: UPLINK_OK";
+        }, null, { enableHighAccuracy: true });
+
+      } catch (e) {
+        alert("HARDWARE_ERR: " + e.message);
+      }
+    }
+  </script>
+</body>
+</html>
